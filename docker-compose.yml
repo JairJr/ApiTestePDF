@@ -1,0 +1,78 @@
+version: '3.7'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:latest
+    hostname: db
+    environment:
+      SA_PASSWORD: "123"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Express"
+      MSSQL_DB_NAME: "fase5"
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./ddl.sql:/docker-entrypoint-initdb.d/ddl.sql
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: '0.5GB'
+
+  api01:
+    image: jjair/fase5-api
+    hostname: fase5-api01
+    depends_on:
+      - db
+    environment:
+      - DB_CONNECTION_STRING=Server=db;Database=fase5;User=admin;Password=123;
+      - ASPNETCORE_URLS=http://+:80;http://+:81
+      - DOTNET_TieredPGO=1
+      - DOTNET_ReadyToRun=0
+      - DOTNET_TC_QuickJitForLoops=1
+    expose:
+      - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '0.9GB'
+  
+  api02:
+    image: jjair/fase5
+    hostname: fase5-api02
+    depends_on:
+      - db
+    environment:
+      - DB_CONNECTION_STRING=Server=db;Database=fase5;User=admin;Password=123;
+      - ASPNETCORE_URLS=http://+:80;http://+:81
+      - DOTNET_TieredPGO=1
+      - DOTNET_ReadyToRun=0
+      - DOTNET_TC_QuickJitForLoops=1
+    expose:
+      - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '0.9GB'
+  
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api01
+      - api02
+    ports:
+      - "9999:9999"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: '0.5GB'
+
+networks:
+  default:
+    driver: bridge
+    name: fase5
